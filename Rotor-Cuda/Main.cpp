@@ -6,16 +6,33 @@
 #include <string>
 #include <string.h>
 #include <stdexcept>
+#include <iostream>
 #include <cassert>
 #include <algorithm>
 #ifndef WIN64
 #include <signal.h>
 #include <unistd.h>
+#include <inttypes.h>
+
 #endif
 
 #define RELEASE "1.00"
 
 using namespace std;
+#define STD_OUTPUT_HANDLE 0
+typedef unsigned short WORD;
+typedef int HANDLE;
+typedef int CONSOLE_SCREEN_BUFFER_INFO;
+typedef struct {
+        int Left;
+        int Top;
+        int Right;
+        int Bottom;
+    } SMALL_RECT;
+typedef struct {
+        int X;
+        int Y;
+    } COORD;
 bool should_exit = false;
 
 // ----------------------------------------------------------------------------
@@ -172,6 +189,38 @@ bool parseRange(const std::string& s, Int& start, Int& end)
 	return true;
 }
 
+void setColor2(int color = 0) {
+    // Alternativas de cores usando ANSI escape codes
+    switch (color) {
+        case 0:  // Reset color
+            std::cout << "\033[0m";
+            break;
+        case 1:  // Red text
+            std::cout << "\033[31m";
+            break;
+        case 2:  // Green text
+            std::cout << "\033[32m";
+            break;
+        case 3:  // Yellow text
+            std::cout << "\033[33m";
+            break;
+        case 4:  // Blue text
+            std::cout << "\033[34m";
+            break;
+        case 5:  // Magenta text
+            std::cout << "\033[35m";
+            break;
+        case 6:  // Cyan text
+            std::cout << "\033[36m";
+            break;
+        case 7:  // White text (or default light gray)
+            std::cout << "\033[37m";
+            break;
+        default:
+            std::cout << "\033[0m"; // Reset if color not recognized
+    }
+}
+
 #ifdef WIN64
 BOOL WINAPI CtrlHandler(DWORD fdwCtrlType)
 {
@@ -199,35 +248,59 @@ int main(int argc, char** argv)
 	rseed(Timer::getSeed32());
 	struct console
 	{
-		console(unsigned width, unsigned height)
-		{
-			SMALL_RECT r;
-			COORD      c;
-			hConOut = GetStdHandle(STD_OUTPUT_HANDLE);
-			if (!GetConsoleScreenBufferInfo(hConOut, &csbi))
-				throw runtime_error("  You must be attached to a human.");
+		#ifdef WIN64
+			
+			console(unsigned width, unsigned height)
+			{
+				SMALL_RECT r;
+				COORD      c;
+				hConOut = GetStdHandle(STD_OUTPUT_HANDLE);
+				if (!GetConsoleScreenBufferInfo(hConOut, &csbi))
+					throw runtime_error("  You must be attached to a human.");
 
-			r.Left =
-				r.Top = 0;
-			r.Right = width - 1;
-			r.Bottom = height - 1;
-			SetConsoleWindowInfo(hConOut, TRUE, &r);
+				r.Left =
+					r.Top = 0;
+				r.Right = width - 1;
+				r.Bottom = height - 1;
+				SetConsoleWindowInfo(hConOut, TRUE, &r);
 
-			c.X = width;
-			c.Y = height;
-			SetConsoleScreenBufferSize(hConOut, c);
-		}
+				c.X = width;
+				c.Y = height;
+				SetConsoleScreenBufferSize(hConOut, c);
+			}
+		#else
+			
+			// Apenas uma função vazia ou alternativa, se a manipulação de console não for crítica
+			console(unsigned width, unsigned height)
+			{
+				// No Linux, você pode redefinir o tamanho do terminal manualmente ou
+				// usar bibliotecas como `ncurses` se for necessário.
+				// std::cout << "\033[8;" << height << ";" << width << "t"; // Isso envia um comando ANSI para tentar redimensionar o terminal
+			}
+		#endif
+
 
 		~console()
 		{
-			SetConsoleTextAttribute(hConOut, csbi.wAttributes);
-			SetConsoleScreenBufferSize(hConOut, csbi.dwSize);
-			SetConsoleWindowInfo(hConOut, TRUE, &csbi.srWindow);
+			#ifdef WIN64
+				// Restaurar atributos do console no Windows
+				SetConsoleTextAttribute(hConOut, csbi.wAttributes);
+				SetConsoleScreenBufferSize(hConOut, csbi.dwSize);
+				SetConsoleWindowInfo(hConOut, TRUE, &csbi.srWindow);
+			#else
+					// Resetar cores para o padrão no terminal Linux
+					std::cout << "\033[0m";
+			#endif
 		}
 
 		void color(WORD color = 0x07)
 		{
-			SetConsoleTextAttribute(hConOut, color);
+			#ifdef WIN64
+				SetConsoleTextAttribute(hConOut, color);
+			#else
+				setColor2(1);
+				// std::cout << "Texto em vermelho\n";
+      #endif
 		}
 
 		HANDLE                     hConOut;
@@ -237,8 +310,13 @@ int main(int argc, char** argv)
 	//----------------------------------------------------------------------------
 	console con(220, 1000);
 	int color = 14;
-	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-	SetConsoleTextAttribute(hConsole, color);
+	#ifdef WIN64
+		HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+		SetConsoleTextAttribute(hConsole, color);
+	#else
+		setColor2(1);
+		// std::cout << "Texto em vermelho\n";
+  #endif
 	bool gpuEnable = false;
 	bool gpuAutoGrid = true;
 	int compMode = SEARCH_COMPRESSED;
@@ -329,11 +407,11 @@ int main(int argc, char** argv)
 				return 0;
 			}
 			else if (optArg.equals("-l", "--list")) {
-#ifdef WIN64
+				#ifdef WIN64
 				GPUEngine::PrintCudaInfo();
-#else
+			#else
 				printf("  GPU code not compiled, use -DWITHGPU when compiling.\n");
-#endif
+			#endif
 				return 0;
 			}
 			else if (optArg.equals("-u", "--uncomp")) {
@@ -568,7 +646,7 @@ int main(int argc, char** argv)
 	printf("  SSE          : %s\n", useSSE ? "YES" : "NO");
 	
 	if (rKey != 0) {
-		printf("  RKEY         : Reload every %llu000000000\n", rKey);
+		printf("  RKEY         : Reload every %" PRIu64 "000000000\n", rKey);
 	}
 	printf("  MAX FOUND    : %d\n", maxFound);
 	if (coinType == COIN_BTC) {

@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <iostream>
 #include <cassert>
+#include <cinttypes>
 #ifndef WIN64
 #include <pthread.h>
 #endif
@@ -87,7 +88,7 @@ Rotor::Rotor(const std::string& inputFile, int compMode, int searchMode, int coi
 			bloom->add(buf, K_LENGTH);
 			memcpy(DATA + (i * K_LENGTH), buf, K_LENGTH);
 			if ((percent != 0) && i % percent == 0) {
-				printf("\r  Loading      : %llu %%", (i / percent));
+				printf("\r  Loading      : %" PRIu64 " %%", (i / percent));
 				fflush(stdout);
 			}
 		}
@@ -168,6 +169,37 @@ Rotor::Rotor(const std::vector<unsigned char>& hashORxpoint, int compMode, int s
 }
 
 // ----------------------------------------------------------------------------
+void setColor3(int color = 0) {
+    // Alternativas de cores usando ANSI escape codes
+    switch (color) {
+        case 0:  // Reset color
+            std::cout << "\033[0m";
+            break;
+        case 1:  // Red text
+            std::cout << "\033[31m";
+            break;
+        case 2:  // Green text
+            std::cout << "\033[32m";
+            break;
+        case 3:  // Yellow text
+            std::cout << "\033[33m";
+            break;
+        case 4:  // Blue text
+            std::cout << "\033[34m";
+            break;
+        case 5:  // Magenta text
+            std::cout << "\033[35m";
+            break;
+        case 6:  // Cyan text
+            std::cout << "\033[36m";
+            break;
+        case 7:  // White text (or default light gray)
+            std::cout << "\033[37m";
+            break;
+        default:
+            std::cout << "\033[0m"; // Reset if color not recognized
+    }
+}
 
 void Rotor::InitGenratorTable()
 {
@@ -239,8 +271,14 @@ void Rotor::output(std::string addr, std::string pAddr, std::string pAddrHex, st
 
 	if (!needToClose)
 		printf("\n");
-	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-	SetConsoleTextAttribute(hConsole, FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_INTENSITY);
+    #ifdef WIN64
+      HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+	  SetConsoleTextAttribute(hConsole, FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_INTENSITY);
+    #else
+      setColor3(1);
+      // std::cout << "Texto em vermelho\n";
+    #endif
+	
 	fprintf(f, "PubAddress: %s\n", addr.c_str());
 	fprintf(stdout, "\n  =================================================================================\n");
 	fprintf(stdout, "  PubAddress: %s\n", addr.c_str());
@@ -274,6 +312,9 @@ void Rotor::output(std::string addr, std::string pAddr, std::string pAddrHex, st
 
 bool Rotor::checkPrivKey(std::string addr, Int& key, int32_t incr, bool mode)
 {
+  printf("  PivK1 : %s\n", addr.c_str());
+  printf("  PivK1 : %d\n", incr);
+  printf("  PivK1 : %d\n", mode);
 	Int k(&key), k2(&key);
 	k.Add((uint64_t)incr);
 	k2.Add((uint64_t)incr);
@@ -287,6 +328,7 @@ bool Rotor::checkPrivKey(std::string addr, Int& key, int32_t incr, bool mode)
 		k.Add(&secp->order);
 		p = secp->ComputePublicKey(&k);
 		std::string chkAddr = secp->GetAddress(mode, p);
+    
 		if (chkAddr != addr) {
 			printf("\n=================================================================================\n");
 			printf("  Warning, wrong private key generated !\n");
@@ -306,6 +348,7 @@ bool Rotor::checkPrivKey(std::string addr, Int& key, int32_t incr, bool mode)
 
 bool Rotor::checkPrivKeyETH(std::string addr, Int& key, int32_t incr)
 {
+  printf("  PivK2 : %d\n", incr);
 	Int k(&key), k2(&key);
 	k.Add((uint64_t)incr);
 	k2.Add((uint64_t)incr);
@@ -576,7 +619,7 @@ void Rotor::FindKeyCPU(TH_PARAM * ph)
 	if (rKey > 0) {
 		if (rKeyCount2 == 0) {
 			if (thId == 0) {
-				printf("  Base Key     : Randomly changes %d Private keys every %llu.000.000.000 on the counter\n\n", nbCPUThread, rKey);
+				printf("  Base Key     : Randomly changes %d Private keys every %" PRIu64 ".000.000.000 on the counter\n\n", nbCPUThread, rKey);
 			}
 		}
 	}
@@ -839,7 +882,7 @@ void Rotor::getGPUStartingKeys(Int & tRangeStart, Int & tRangeEnd, int groupSize
 {
 	if (rKey > 0) {
 		if (rKeyCount2 == 0) {
-			printf("  Base Key     : Randomly changes %d start Private keys every %llu.000.000.000 on the counter\n\n", nbThread, rKey);
+			printf("  Base Key     : Randomly changes %d start Private keys every %" PRIu64 ".000.000.000 on the counter\n\n", nbThread, rKey);
 		}
 		
 		for (int i = 0; i < nbThread; i++) {
@@ -874,32 +917,74 @@ void Rotor::getGPUStartingKeys(Int & tRangeStart, Int & tRangeEnd, int groupSize
 
 			keys[i].Set(&tRangeStart2);
 			if (i == 0) {
-				printf("  Thread 00000: %064s ->", keys[i].GetBase16().c_str());
+        std::string base16Key = keys[i].GetBase16();
+        base16Key.insert(base16Key.begin(), 64 - base16Key.size(), '0');
+				printf("  Thread 00000: %s ->", base16Key.c_str());
 			}
 			Int dobb;
 			dobb.Set(&tRangeStart2);
 			dobb.Add(&tRangeDiff);
 			if (i == 0) {
-				printf(" %064s \n", dobb.GetBase16().c_str());
+				std::string base16Dobb = dobb.GetBase16();
+        base16Dobb.insert(base16Dobb.begin(), 64 - base16Dobb.size(), '0'); // Preenche com zeros à esquerda
+        printf(" %s \n", base16Dobb.c_str());
+
 			}
 			if (i == 1) {
-				printf("  Thread 00001: %064s -> %064s \n", tRangeStart2.GetBase16().c_str(), dobb.GetBase16().c_str());
+				std::string tRangeStart2Str = tRangeStart2.GetBase16();
+        tRangeStart2Str.insert(tRangeStart2Str.begin(), 64 - tRangeStart2Str.size(), '0'); // Preenche com zeros à esquerda
+
+        std::string dobbStr = dobb.GetBase16();
+        dobbStr.insert(dobbStr.begin(), 64 - dobbStr.size(), '0'); // Preenche com zeros à esquerda
+
+        printf("  Thread 00001: %s -> %s \n", tRangeStart2Str.c_str(), dobbStr.c_str());
+
 			}
 			if (i == 2) {
-				printf("  Thread 00002: %064s -> %064s \n", tRangeStart2.GetBase16().c_str(), dobb.GetBase16().c_str());
+        std::string tRangeStart2Str = tRangeStart2.GetBase16();
+        tRangeStart2Str.insert(tRangeStart2Str.begin(), 64 - tRangeStart2Str.size(), '0'); // Preenche com zeros à esquerda
+
+        std::string dobbStr = dobb.GetBase16();
+        dobbStr.insert(dobbStr.begin(), 64 - dobbStr.size(), '0'); // Preenche com zeros à esquerda
+
+        printf("  Thread 00002: %s -> %s \n", tRangeStart2Str.c_str(), dobbStr.c_str());
 			}
 			if (i == 3) {
-				printf("  Thread 00003: %064s -> %064s \n", tRangeStart2.GetBase16().c_str(), dobb.GetBase16().c_str());
+        std::string tRangeStart2Str = tRangeStart2.GetBase16();
+        tRangeStart2Str.insert(tRangeStart2Str.begin(), 64 - tRangeStart2Str.size(), '0'); // Preenche com zeros à esquerda
+
+        std::string dobbStr = dobb.GetBase16();
+        dobbStr.insert(dobbStr.begin(), 64 - dobbStr.size(), '0'); // Preenche com zeros à esquerda
+
+        printf("  Thread 00003: %s -> %s \n", tRangeStart2Str.c_str(), dobbStr.c_str());
 				printf("          ... : \n");
 			}
 			if (i == nbThread - 2) {
-				printf("  Thread %d: %064s -> %064s \n", i, tRangeStart2.GetBase16().c_str(), dobb.GetBase16().c_str());
+        std::string tRangeStart2Str = tRangeStart2.GetBase16();
+        tRangeStart2Str.insert(tRangeStart2Str.begin(), 64 - tRangeStart2Str.size(), '0'); // Preenche com zeros à esquerda
+
+        std::string dobbStr = dobb.GetBase16();
+        dobbStr.insert(dobbStr.begin(), 64 - dobbStr.size(), '0'); // Preenche com zeros à esquerda
+
+        printf("  Thread %d: %s -> %s \n", i, tRangeStart2Str.c_str(), dobbStr.c_str());
 			}
 			if (i == nbThread - 1) {
-				printf("  Thread %d: %064s -> %064s \n", i, tRangeStart2.GetBase16().c_str(), dobb.GetBase16().c_str());
+        std::string tRangeStart2Str = tRangeStart2.GetBase16();
+        tRangeStart2Str.insert(tRangeStart2Str.begin(), 64 - tRangeStart2Str.size(), '0'); // Preenche com zeros à esquerda
+
+        std::string dobbStr = dobb.GetBase16();
+        dobbStr.insert(dobbStr.begin(), 64 - dobbStr.size(), '0'); // Preenche com zeros à esquerda
+
+        printf("  Thread %d: %s -> %s \n", i, tRangeStart2Str.c_str(), dobbStr.c_str());
 			}
 			if (i == nbThread) {
-				printf("  Thread %d: %064s -> %064s \n\n", i, tRangeStart2.GetBase16().c_str(), dobb.GetBase16().c_str());
+        std::string tRangeStart2Str = tRangeStart2.GetBase16();
+        tRangeStart2Str.insert(tRangeStart2Str.begin(), 64 - tRangeStart2Str.size(), '0'); // Preenche com zeros à esquerda
+
+        std::string dobbStr = dobb.GetBase16();
+        dobbStr.insert(dobbStr.begin(), 64 - dobbStr.size(), '0'); // Preenche com zeros à esquerda
+
+        printf("  Thread %d: %s -> %s \n\n", i, tRangeStart2Str.c_str(), dobbStr.c_str());
 			}
 
 			tRangeStart2.Add(&tRangeDiff);
@@ -1275,7 +1360,7 @@ void Rotor::Search(int nbThread, std::vector<int> gpuId, std::vector<int> gridSi
 				if (avgGpuKeyRate > 1000000000) {
 
 					memset(timeStr, '\0', 256);
-					printf("\r  [%s] [R: %llu] [%s] [F: %d] [CPU+GPU: %.2f Gk/s] [GPU: %.2f Gk/s] [T: %s]    ",
+					printf("\r  [%s] [R: %" PRIu64 "] [%s] [F: %d] [CPU+GPU: %.2f Gk/s] [GPU: %.2f Gk/s] [T: %s]    ",
 						toTimeStr(t1, timeStr),
 						rKeyCount,
 						rhex.GetBase16().c_str(),
@@ -1286,7 +1371,7 @@ void Rotor::Search(int nbThread, std::vector<int> gpuId, std::vector<int> gridSi
 				}
 				else {
 					memset(timeStr, '\0', 256);
-					printf("\r  [%s] [R: %llu] [%s] [F: %d] [CPU+GPU: %.2f Mk/s] [GPU: %.2f Mk/s] [T: %s]    ",
+					printf("\r  [%s] [R: %" PRIu64 "] [%s] [F: %d] [CPU+GPU: %.2f Mk/s] [GPU: %.2f Mk/s] [T: %s]    ",
 						toTimeStr(t1, timeStr),
 						rKeyCount,
 						rhex.GetBase16().c_str(),
@@ -1302,7 +1387,7 @@ void Rotor::Search(int nbThread, std::vector<int> gpuId, std::vector<int> gridSi
 			if (avgGpuKeyRate > 1000000000) {
 				if (isAlive(params)) {
 					memset(timeStr, '\0', 256);
-					printf("\r  [%s] [CPU+GPU: %.2f Gk/s] [GPU: %.2f Gk/s] [C: %lf %%] [R: %llu] [T: %s (%d bit)] [F: %d]   ",
+					printf("\r  [%s] [CPU+GPU: %.2f Gk/s] [GPU: %.2f Gk/s] [C: %lf %%] [R: %" PRIu64 "] [T: %s (%d bit)] [F: %d]   ",
 						toTimeStr(t1, timeStr),
 						avgKeyRate / 1000000000.0,
 						avgGpuKeyRate / 1000000000.0,
@@ -1316,7 +1401,7 @@ void Rotor::Search(int nbThread, std::vector<int> gpuId, std::vector<int> gridSi
 			else {
 				if (isAlive(params)) {
 					memset(timeStr, '\0', 256);
-					printf("\r  [%s] [CPU+GPU: %.2f Mk/s] [GPU: %.2f Mk/s] [C: %lf %%] [R: %llu] [T: %s (%d bit)] [F: %d]   ",
+					printf("\r  [%s] [CPU+GPU: %.2f Mk/s] [GPU: %.2f Mk/s] [C: %lf %%] [R: %" PRIu64 "] [T: %s (%d bit)] [F: %d]   ",
 						toTimeStr(t1, timeStr),
 						avgKeyRate / 1000000.0,
 						avgGpuKeyRate / 1000000.0,
@@ -1443,7 +1528,7 @@ std::string Rotor::formatThousands(uint64_t x)
 {
 	char buf[32] = "";
 
-	sprintf(buf, "%llu", x);
+	sprintf(buf, "%" PRIu64, x);
 
 	std::string s(buf);
 
