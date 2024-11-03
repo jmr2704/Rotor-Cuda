@@ -336,6 +336,7 @@ bool Rotor::checkPrivKey(std::string addr, Int& key, int32_t incr, bool mode)
 bool Rotor::checkPrivKeyETH(std::string addr, Int& key, int32_t incr)
 {
   printf("  PivK2 : %d\n", incr);
+  printf("  PivK2 : %d\n", incr);
 	Int k(&key), k2(&key);
 	k.Add((uint64_t)incr);
 	k2.Add((uint64_t)incr);
@@ -611,6 +612,7 @@ void Rotor::FindKeyCPU(TH_PARAM * ph)
 	if (rKey > 0) {
 		if (rKeyCount2 == 0) {
 			if (thId == 0) {
+				printf("  Base Key     : Randomly changes %d Private keys every %" PRIu64 ".000.000.000 on the counter\n\n", nbCPUThread, rKey);
 				printf("  Base Key     : Randomly changes %d Private keys every %" PRIu64 ".000.000.000 on the counter\n\n", nbCPUThread, rKey);
 			}
 		}
@@ -964,6 +966,9 @@ void Rotor::getGPUStartingKeys(Int & tRangeStart, Int & tRangeEnd, int groupSize
         std::string base16Key = keys[i].GetBase16();
         base16Key.insert(base16Key.begin(), 64 - base16Key.size(), '0');
 				printf("  Thread 00000: %s ->", base16Key.c_str());
+        std::string base16Key = keys[i].GetBase16();
+        base16Key.insert(base16Key.begin(), 64 - base16Key.size(), '0');
+				printf("  Thread 00000: %s ->", base16Key.c_str());
 			}
 			Int dobb;
 			dobb.Set(&tRangeStart2);
@@ -973,8 +978,20 @@ void Rotor::getGPUStartingKeys(Int & tRangeStart, Int & tRangeEnd, int groupSize
         base16Dobb.insert(base16Dobb.begin(), 64 - base16Dobb.size(), '0'); // Preenche com zeros à esquerda
         printf(" %s \n", base16Dobb.c_str());
 
+				std::string base16Dobb = dobb.GetBase16();
+        base16Dobb.insert(base16Dobb.begin(), 64 - base16Dobb.size(), '0'); // Preenche com zeros à esquerda
+        printf(" %s \n", base16Dobb.c_str());
+
 			}
 			if (i == 1) {
+				std::string tRangeStart2Str = tRangeStart2.GetBase16();
+        tRangeStart2Str.insert(tRangeStart2Str.begin(), 64 - tRangeStart2Str.size(), '0'); // Preenche com zeros à esquerda
+
+        std::string dobbStr = dobb.GetBase16();
+        dobbStr.insert(dobbStr.begin(), 64 - dobbStr.size(), '0'); // Preenche com zeros à esquerda
+
+        printf("  Thread 00001: %s -> %s \n", tRangeStart2Str.c_str(), dobbStr.c_str());
+
 				std::string tRangeStart2Str = tRangeStart2.GetBase16();
         tRangeStart2Str.insert(tRangeStart2Str.begin(), 64 - tRangeStart2Str.size(), '0'); // Preenche com zeros à esquerda
 
@@ -992,8 +1009,22 @@ void Rotor::getGPUStartingKeys(Int & tRangeStart, Int & tRangeEnd, int groupSize
         dobbStr.insert(dobbStr.begin(), 64 - dobbStr.size(), '0'); // Preenche com zeros à esquerda
 
         printf("  Thread 00002: %s -> %s \n", tRangeStart2Str.c_str(), dobbStr.c_str());
+        std::string tRangeStart2Str = tRangeStart2.GetBase16();
+        tRangeStart2Str.insert(tRangeStart2Str.begin(), 64 - tRangeStart2Str.size(), '0'); // Preenche com zeros à esquerda
+
+        std::string dobbStr = dobb.GetBase16();
+        dobbStr.insert(dobbStr.begin(), 64 - dobbStr.size(), '0'); // Preenche com zeros à esquerda
+
+        printf("  Thread 00002: %s -> %s \n", tRangeStart2Str.c_str(), dobbStr.c_str());
 			}
 			if (i == 3) {
+        std::string tRangeStart2Str = tRangeStart2.GetBase16();
+        tRangeStart2Str.insert(tRangeStart2Str.begin(), 64 - tRangeStart2Str.size(), '0'); // Preenche com zeros à esquerda
+
+        std::string dobbStr = dobb.GetBase16();
+        dobbStr.insert(dobbStr.begin(), 64 - dobbStr.size(), '0'); // Preenche com zeros à esquerda
+
+        printf("  Thread 00003: %s -> %s \n", tRangeStart2Str.c_str(), dobbStr.c_str());
         std::string tRangeStart2Str = tRangeStart2.GetBase16();
         tRangeStart2Str.insert(tRangeStart2Str.begin(), 64 - tRangeStart2Str.size(), '0'); // Preenche com zeros à esquerda
 
@@ -1011,6 +1042,13 @@ void Rotor::getGPUStartingKeys(Int & tRangeStart, Int & tRangeEnd, int groupSize
         dobbStr.insert(dobbStr.begin(), 64 - dobbStr.size(), '0'); // Preenche com zeros à esquerda
 
         printf("  Thread %d: %s -> %s \n", i, tRangeStart2Str.c_str(), dobbStr.c_str());
+        std::string tRangeStart2Str = tRangeStart2.GetBase16();
+        tRangeStart2Str.insert(tRangeStart2Str.begin(), 64 - tRangeStart2Str.size(), '0'); // Preenche com zeros à esquerda
+
+        std::string dobbStr = dobb.GetBase16();
+        dobbStr.insert(dobbStr.begin(), 64 - dobbStr.size(), '0'); // Preenche com zeros à esquerda
+
+        printf("  Thread %d: %s -> %s \n", i, tRangeStart2Str.c_str(), dobbStr.c_str());
 			}
 			if (i == nbThread - 1) {
         std::string tRangeStart2Str = tRangeStart2.GetBase16();
@@ -1020,8 +1058,22 @@ void Rotor::getGPUStartingKeys(Int & tRangeStart, Int & tRangeEnd, int groupSize
         dobbStr.insert(dobbStr.begin(), 64 - dobbStr.size(), '0'); // Preenche com zeros à esquerda
 
         printf("  Thread %d: %s -> %s \n", i, tRangeStart2Str.c_str(), dobbStr.c_str());
+        std::string tRangeStart2Str = tRangeStart2.GetBase16();
+        tRangeStart2Str.insert(tRangeStart2Str.begin(), 64 - tRangeStart2Str.size(), '0'); // Preenche com zeros à esquerda
+
+        std::string dobbStr = dobb.GetBase16();
+        dobbStr.insert(dobbStr.begin(), 64 - dobbStr.size(), '0'); // Preenche com zeros à esquerda
+
+        printf("  Thread %d: %s -> %s \n", i, tRangeStart2Str.c_str(), dobbStr.c_str());
 			}
 			if (i == nbThread) {
+        std::string tRangeStart2Str = tRangeStart2.GetBase16();
+        tRangeStart2Str.insert(tRangeStart2Str.begin(), 64 - tRangeStart2Str.size(), '0'); // Preenche com zeros à esquerda
+
+        std::string dobbStr = dobb.GetBase16();
+        dobbStr.insert(dobbStr.begin(), 64 - dobbStr.size(), '0'); // Preenche com zeros à esquerda
+
+        printf("  Thread %d: %s -> %s \n\n", i, tRangeStart2Str.c_str(), dobbStr.c_str());
         std::string tRangeStart2Str = tRangeStart2.GetBase16();
         tRangeStart2Str.insert(tRangeStart2Str.begin(), 64 - tRangeStart2Str.size(), '0'); // Preenche com zeros à esquerda
 
@@ -1413,6 +1465,7 @@ void Rotor::Search(int nbThread, std::vector<int> gpuId, std::vector<int> gridSi
 
 					memset(timeStr, '\0', 256);
 					printf("\r  [%s] [R: %" PRIu64 "] [%s] [F: %d] [CPU+GPU: %.2f Gk/s] [GPU: %.2f Gk/s] [T: %s]    ",
+					printf("\r  [%s] [R: %" PRIu64 "] [%s] [F: %d] [CPU+GPU: %.2f Gk/s] [GPU: %.2f Gk/s] [T: %s]    ",
 						toTimeStr(t1, timeStr),
 						rKeyCount,
 						rhex.GetBase16().c_str(),
@@ -1423,6 +1476,7 @@ void Rotor::Search(int nbThread, std::vector<int> gpuId, std::vector<int> gridSi
 				}
 				else {
 					memset(timeStr, '\0', 256);
+					printf("\r  [%s] [R: %" PRIu64 "] [%s] [F: %d] [CPU+GPU: %.2f Mk/s] [GPU: %.2f Mk/s] [T: %s]    ",
 					printf("\r  [%s] [R: %" PRIu64 "] [%s] [F: %d] [CPU+GPU: %.2f Mk/s] [GPU: %.2f Mk/s] [T: %s]    ",
 						toTimeStr(t1, timeStr),
 						rKeyCount,
@@ -1440,6 +1494,7 @@ void Rotor::Search(int nbThread, std::vector<int> gpuId, std::vector<int> gridSi
 				if (isAlive(params)) {
 					memset(timeStr, '\0', 256);
 					printf("\r  [%s] [CPU+GPU: %.2f Gk/s] [GPU: %.2f Gk/s] [C: %lf %%] [R: %" PRIu64 "] [T: %s (%d bit)] [F: %d]   ",
+					printf("\r  [%s] [CPU+GPU: %.2f Gk/s] [GPU: %.2f Gk/s] [C: %lf %%] [R: %" PRIu64 "] [T: %s (%d bit)] [F: %d]   ",
 						toTimeStr(t1, timeStr),
 						avgKeyRate / 1000000000.0,
 						avgGpuKeyRate / 1000000000.0,
@@ -1453,6 +1508,7 @@ void Rotor::Search(int nbThread, std::vector<int> gpuId, std::vector<int> gridSi
 			else {
 				if (isAlive(params)) {
 					memset(timeStr, '\0', 256);
+					printf("\r  [%s] [CPU+GPU: %.2f Mk/s] [GPU: %.2f Mk/s] [C: %lf %%] [R: %" PRIu64 "] [T: %s (%d bit)] [F: %d]   ",
 					printf("\r  [%s] [CPU+GPU: %.2f Mk/s] [GPU: %.2f Mk/s] [C: %lf %%] [R: %" PRIu64 "] [T: %s (%d bit)] [F: %d]   ",
 						toTimeStr(t1, timeStr),
 						avgKeyRate / 1000000.0,
@@ -1588,6 +1644,7 @@ std::string Rotor::formatThousands(uint64_t x)
 {
 	char buf[32] = "";
 
+	sprintf(buf, "%" PRIu64, x);
 	sprintf(buf, "%" PRIu64, x);
 
 	std::string s(buf);

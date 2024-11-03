@@ -191,6 +191,38 @@ bool parseRange(const std::string& s, Int& start, Int& end)
 	return true;
 }
 
+void setColor2(int color = 0) {
+    // Alternativas de cores usando ANSI escape codes
+    switch (color) {
+        case 0:  // Reset color
+            std::cout << "\033[0m";
+            break;
+        case 1:  // Red text
+            std::cout << "\033[31m";
+            break;
+        case 2:  // Green text
+            std::cout << "\033[32m";
+            break;
+        case 3:  // Yellow text
+            std::cout << "\033[33m";
+            break;
+        case 4:  // Blue text
+            std::cout << "\033[34m";
+            break;
+        case 5:  // Magenta text
+            std::cout << "\033[35m";
+            break;
+        case 6:  // Cyan text
+            std::cout << "\033[36m";
+            break;
+        case 7:  // White text (or default light gray)
+            std::cout << "\033[37m";
+            break;
+        default:
+            std::cout << "\033[0m"; // Reset if color not recognized
+    }
+}
+
 #ifdef WIN64
 BOOL WINAPI CtrlHandler(DWORD fdwCtrlType)
 {
