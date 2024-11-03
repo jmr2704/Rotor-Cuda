@@ -2,20 +2,38 @@
 #include "Rotor.h"
 #include "Base58.h"
 #include "CmdParse.h"
+#include "ColorUtils.h" // Inclui o cabeçalho onde setColor2 é declarado
 #include <fstream>
 #include <string>
 #include <string.h>
 #include <stdexcept>
+#include <iostream>
 #include <cassert>
 #include <algorithm>
 #ifndef WIN64
 #include <signal.h>
 #include <unistd.h>
+#include <inttypes.h>
+
 #endif
 
 #define RELEASE "1.00"
 
 using namespace std;
+#define STD_OUTPUT_HANDLE 0
+typedef unsigned short WORD;
+typedef int HANDLE;
+typedef int CONSOLE_SCREEN_BUFFER_INFO;
+typedef struct {
+        int Left;
+        int Top;
+        int Right;
+        int Bottom;
+    } SMALL_RECT;
+typedef struct {
+        int X;
+        int Y;
+    } COORD;
 bool should_exit = false;
 
 // ----------------------------------------------------------------------------
@@ -35,25 +53,26 @@ void usage()
 	printf("-i, --in FILE                            : Read rmd160 hashes or xpoints from FILE, should be in binary format with sorted\n");
 	printf("-o, --out FILE                           : Write keys to FILE, default: Found.txt\n");
 	printf("-m, --mode MODE                          : Specify search mode where MODE is\n");
-	printf("                                               ADDRESS  : for single address\n");
-	printf("                                               ADDRESSES: for multiple hashes/addresses\n");
-	printf("                                               XPOINT   : for single xpoint\n");
-	printf("                                               XPOINTS  : for multiple xpoints\n");
+	printf("                                         ADDRESS  : for single address\n");
+	printf("                                         ADDRESSES: for multiple hashes/addresses\n");
+	printf("                                         XPOINT   : for single xpoint\n");
+	printf("                                         XPOINTS  : for multiple xpoints\n");
 	printf("--coin BTC/ETH                           : Specify Coin name to search\n");
-	printf("                                               BTC: available mode :-\n");
-	printf("                                                   ADDRESS, ADDRESSES, XPOINT, XPOINTS\n");
-	printf("                                               ETH: available mode :-\n");
-	printf("                                                   ADDRESS, ADDRESSES\n");
+	printf("                                         BTC: available mode :-\n");
+	printf("                                         ADDRESS, ADDRESSES, XPOINT, XPOINTS\n");
+	printf("                                         ETH: available mode :-\n");
+	printf("                                         ADDRESS, ADDRESSES\n");
 	printf("-l, --list                               : List cuda enabled devices\n");
 	printf("--range KEYSPACE                         : Specify the range:\n");
-	printf("                                               START:END\n");
-	printf("                                               START:+COUNT\n");
-	printf("                                               START\n");
-	printf("                                               :END\n");
-	printf("                                               :+COUNT\n");
-	printf("                                               Where START, END, COUNT are in hex format\n");
+	printf("                                         START:END\n");
+	printf("                                         START:+COUNT\n");
+	printf("                                         START\n");
+	printf("                                         :END\n");
+	printf("                                         :+COUNT\n");
+	printf("                                         Where START, END, COUNT are in hex format\n");
 	printf("-r, --rkey Rkey                          : Reloads random start Private key every (-r 10 = 10.000.000.000), default is disabled\n");
 	printf("-v, --version                            : Show version\n");
+	printf("-cl, --color COLOR                       : Set console text color (0-7)\n"); // Nova opção para cor
 }
 
 // ----------------------------------------------------------------------------
@@ -199,35 +218,59 @@ int main(int argc, char** argv)
 	rseed(Timer::getSeed32());
 	struct console
 	{
-		console(unsigned width, unsigned height)
-		{
-			SMALL_RECT r;
-			COORD      c;
-			hConOut = GetStdHandle(STD_OUTPUT_HANDLE);
-			if (!GetConsoleScreenBufferInfo(hConOut, &csbi))
-				throw runtime_error("  You must be attached to a human.");
+		#ifdef WIN64
+			
+			console(unsigned width, unsigned height)
+			{
+				SMALL_RECT r;
+				COORD      c;
+				hConOut = GetStdHandle(STD_OUTPUT_HANDLE);
+				if (!GetConsoleScreenBufferInfo(hConOut, &csbi))
+					throw runtime_error("  You must be attached to a human.");
 
-			r.Left =
-				r.Top = 0;
-			r.Right = width - 1;
-			r.Bottom = height - 1;
-			SetConsoleWindowInfo(hConOut, TRUE, &r);
+				r.Left =
+					r.Top = 0;
+				r.Right = width - 1;
+				r.Bottom = height - 1;
+				SetConsoleWindowInfo(hConOut, TRUE, &r);
 
-			c.X = width;
-			c.Y = height;
-			SetConsoleScreenBufferSize(hConOut, c);
-		}
+				c.X = width;
+				c.Y = height;
+				SetConsoleScreenBufferSize(hConOut, c);
+			}
+		#else
+			
+			// Apenas uma função vazia ou alternativa, se a manipulação de console não for crítica
+			console(unsigned width, unsigned height)
+			{
+				// No Linux, você pode redefinir o tamanho do terminal manualmente ou
+				// usar bibliotecas como `ncurses` se for necessário.
+				// std::cout << "\033[8;" << height << ";" << width << "t"; // Isso envia um comando ANSI para tentar redimensionar o terminal
+			}
+		#endif
+
 
 		~console()
 		{
-			SetConsoleTextAttribute(hConOut, csbi.wAttributes);
-			SetConsoleScreenBufferSize(hConOut, csbi.dwSize);
-			SetConsoleWindowInfo(hConOut, TRUE, &csbi.srWindow);
+			#ifdef WIN64
+				// Restaurar atributos do console no Windows
+				SetConsoleTextAttribute(hConOut, csbi.wAttributes);
+				SetConsoleScreenBufferSize(hConOut, csbi.dwSize);
+				SetConsoleWindowInfo(hConOut, TRUE, &csbi.srWindow);
+			#else
+					// Resetar cores para o padrão no terminal Linux
+					std::cout << "\033[0m";
+			#endif
 		}
 
 		void color(WORD color = 0x07)
 		{
-			SetConsoleTextAttribute(hConOut, color);
+			#ifdef WIN64
+				SetConsoleTextAttribute(hConOut, color);
+			#else
+				setColor2(1);
+				// std::cout << "Texto em vermelho\n";
+      #endif
 		}
 
 		HANDLE                     hConOut;
@@ -237,8 +280,13 @@ int main(int argc, char** argv)
 	//----------------------------------------------------------------------------
 	console con(220, 1000);
 	int color = 14;
-	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-	SetConsoleTextAttribute(hConsole, color);
+	#ifdef WIN64
+		HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+		SetConsoleTextAttribute(hConsole, color);
+	#else
+		setColor2(1);
+		// std::cout << "Texto em vermelho\n";
+  #endif
 	bool gpuEnable = false;
 	bool gpuAutoGrid = true;
 	int compMode = SEARCH_COMPRESSED;
@@ -289,6 +337,7 @@ int main(int argc, char** argv)
 	parser.add("", "--range", true);
 	parser.add("-r", "--rkey", true);
 	parser.add("-v", "--version", false);
+	parser.add("-cl", "--color", true); // Adiciona a opção para cor
 
 	if (argc == 1) {
 		usage();
@@ -329,11 +378,11 @@ int main(int argc, char** argv)
 				return 0;
 			}
 			else if (optArg.equals("-l", "--list")) {
-#ifdef WIN64
+				#ifdef WIN64
 				GPUEngine::PrintCudaInfo();
-#else
+			#else
 				printf("  GPU code not compiled, use -DWITHGPU when compiling.\n");
-#endif
+			#endif
 				return 0;
 			}
 			else if (optArg.equals("-u", "--uncomp")) {
@@ -382,6 +431,12 @@ int main(int argc, char** argv)
 				printf("Rotor-Cuda v" RELEASE "\n");
 				return 0;
 			}
+			else if (optArg.equals("-cl", "--color")) {
+                color = std::stoi(optArg.arg);
+                if (color < 0 || color > 7) {
+                    throw std::string("Color must be between 0 and 7");
+                }
+            }
 		}
 		catch (std::string err) {
 			printf("Error: %s\n", err.c_str());
@@ -389,6 +444,12 @@ int main(int argc, char** argv)
 			return -1;
 		}
 	}
+
+	#ifdef WIN64
+        SetConsoleTextAttribute(hConsole, color);
+    #else
+        setColor2(color); // Passa a cor escolhida
+    #endif
 
 	// 
 	if (coinType == COIN_ETH && (searchMode == SEARCH_MODE_SX || searchMode == SEARCH_MODE_MX/* || compMode == SEARCH_COMPRESSED*/)) {
@@ -568,7 +629,7 @@ int main(int argc, char** argv)
 	printf("  SSE          : %s\n", useSSE ? "YES" : "NO");
 	
 	if (rKey != 0) {
-		printf("  RKEY         : Reload every %llu000000000\n", rKey);
+		printf("  RKEY         : Reload every %" PRIu64 "000000000\n", rKey);
 	}
 	printf("  MAX FOUND    : %d\n", maxFound);
 	if (coinType == COIN_BTC) {
@@ -611,12 +672,12 @@ int main(int argc, char** argv)
 		case (int)SEARCH_MODE_MA:
 		case (int)SEARCH_MODE_MX:
 			v = new Rotor(inputFile, compMode, searchMode, coinType, gpuEnable, outputFile, useSSE,
-				maxFound, rKey, rangeStart.GetBase16(), rangeEnd.GetBase16(), should_exit);
+				maxFound, rKey, rangeStart.GetBase16(), rangeEnd.GetBase16(), should_exit, color);
 			break;
 		case (int)SEARCH_MODE_SA:
 		case (int)SEARCH_MODE_SX:
 			v = new Rotor(hashORxpoint, compMode, searchMode, coinType, gpuEnable, outputFile, useSSE,
-				maxFound, rKey, rangeStart.GetBase16(), rangeEnd.GetBase16(), should_exit);
+				maxFound, rKey, rangeStart.GetBase16(), rangeEnd.GetBase16(), should_exit, color);
 			break;
 		default:
 			printf("\n\n  Nothing to do, exiting\n");
@@ -639,12 +700,12 @@ int main(int argc, char** argv)
 	case (int)SEARCH_MODE_MA:
 	case (int)SEARCH_MODE_MX:
 		v = new Rotor(inputFile, compMode, searchMode, coinType, gpuEnable, outputFile, useSSE,
-			maxFound, rKey, rangeStart.GetBase16(), rangeEnd.GetBase16(), should_exit);
+			maxFound, rKey, rangeStart.GetBase16(), rangeEnd.GetBase16(), should_exit, color);
 		break;
 	case (int)SEARCH_MODE_SA:
 	case (int)SEARCH_MODE_SX:
 		v = new Rotor(hashORxpoint, compMode, searchMode, coinType, gpuEnable, outputFile, useSSE,
-			maxFound, rKey, rangeStart.GetBase16(), rangeEnd.GetBase16(), should_exit);
+			maxFound, rKey, rangeStart.GetBase16(), rangeEnd.GetBase16(), should_exit, color);
 		break;
 	default:
 		printf("\n\n  Nothing to do, exiting\n");

@@ -3,6 +3,7 @@
 #include <cstring>
 #include <cmath>
 #include <cstdlib>
+#include <cinttypes>
 
 //#define LENGTH 20
 
@@ -211,7 +212,7 @@ static void sort_file(long LENGTH, const char* in_filename, const char* out_file
 	N = TOTAL / LENGTH;
 	rewind(fd);
 
-	printf("Total entries: %llu\n", N);
+	printf("Total entries: %" PRId64 "\n", N);
 
 	if (TOTAL >= INT64_MAX - 1) {
 		printf("Error: more then INT64_MAX addresses found in the file.\n");
@@ -222,7 +223,12 @@ static void sort_file(long LENGTH, const char* in_filename, const char* out_file
 	memset(DATA, 0, N * LENGTH);
 
 	printf("Reading data...\n");
-	fread(DATA, 1, N * LENGTH, fd);
+	size_t itemsRead = fread(DATA, 1, N * LENGTH, fd);
+  if (itemsRead != N * LENGTH) {
+      // Tratar erro de leitura
+      fprintf(stderr, "Erro ao ler o arquivo.\n");
+      // Opcional: fechar o arquivo ou realizar qualquer outra limpeza necessária
+  }
 	fclose(fd);
 	printf("Reading data complete\n");
 

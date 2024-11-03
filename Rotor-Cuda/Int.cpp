@@ -21,6 +21,9 @@
 #include <math.h>
 #include <emmintrin.h>
 #include "Timer.h"
+#include <sstream> 
+#include <ios>
+#include <iomanip>
 
 #define MAX(x,y) (((x)>(y))?(x):(y))
 #define MIN(x,y) (((x)<(y))?(x):(y))
@@ -1837,4 +1840,16 @@ void Int::Check() {
 	b.SetBase16("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F");
 	Int::SetupField(&b);
 
+}
+
+uint32_t bits[8];  // Exemplo de armazenamento em um array de 8 uint32_t, adaptável conforme sua implementação.
+
+// Função para converter `Int` para string em formato hexadecimal
+std::string Int::to_string() const {
+    std::ostringstream oss;
+    // Percorrer bits na ordem reversa para formar o número completo
+    for (int i = NB32BLOCK - 1; i >= 0; --i) {
+        oss << std::hex << std::setw(8) << std::setfill('0') << bits[i];
+    }
+    return oss.str();
 }

@@ -45,7 +45,9 @@ public:
 	void GetPubKeyBytes(bool compressed, Point& pubKey, unsigned char* publicKeyBytes);
 	void GetXBytes(bool compressed, Point& pubKey, unsigned char* publicKeyBytes);
 
+	std::string to_hex_string(const unsigned char* data, size_t length);
 	std::string GetAddress(bool compressed, Point& pubKey);
+	std::string GetAddress2(bool compressed, unsigned char* ripemd160Hash);
 	std::string GetAddressETH(Point& pubKey);
 	std::string GetAddress(bool compressed, unsigned char* hash160);
 	std::string GetAddressETH(unsigned char* hash);

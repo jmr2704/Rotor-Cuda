@@ -850,7 +850,6 @@ bool GPUEngine::LaunchSEARCH_MODE_SX(std::vector<ITEM>& dataFound, bool spinWait
 	for (uint32_t i = 0; i < nbFound; i++) {
 
 		uint32_t* itemPtr = outputBufferPinned + (i * ITEM_SIZE_X32 + 1);
-		uint8_t* pubkey = (uint8_t*)(itemPtr + 2);
 
 		ITEM it;
 		it.thId = itemPtr[0];

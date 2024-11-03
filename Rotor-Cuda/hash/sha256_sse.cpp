@@ -19,6 +19,7 @@
 #include <immintrin.h>
 #include <string.h>
 #include <stdint.h>
+#include <cstdint>
 
 namespace _sha256sse
 {

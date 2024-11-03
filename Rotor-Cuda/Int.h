@@ -175,6 +175,7 @@ public:
 	std::string GetBaseN(int n, char* charset);
 	std::string GetBlockStr();
 	std::string GetC64Str(int nbDigit);
+	std::string to_string() const;
 
 	// Check functions
 	static void Check();

@@ -15,8 +15,10 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <cstdint>
 #include <string.h>
 #include "sha256.h"
+#include <openssl/sha.h>  // Biblioteca SHA-256 do OpenSSL
 
 #define BSWAP
 
@@ -487,15 +489,33 @@ void sha256_65(unsigned char *input, unsigned char *digest)
 
 void sha256_checksum(uint8_t *input, int length, uint8_t *checksum)
 {
+    // Primeiro SHA-256
+    uint8_t hash1[SHA256_DIGEST_LENGTH];
+    SHA256(input, length, hash1);
 
-    uint32_t s[8];
-    uint8_t b[64];
-    memcpy(b, input, length);
-    memcpy(b + length, _sha256::pad, 56 - length);
-    WRITEBE64(b + 56, length << 3);
-    _sha256::Transform2(s, b);
-    WRITEBE32(checksum, s[0]);
+    // Segundo SHA-256
+    uint8_t hash2[SHA256_DIGEST_LENGTH];
+    SHA256(hash1, SHA256_DIGEST_LENGTH, hash2);
 
+    // Copiar os primeiros 4 bytes para o checksum
+    memcpy(checksum, hash2, 4);
+}
+
+void sha256_checksum2(uint8_t *input, int length, uint8_t *checksum)
+{
+    uint32_t s[8]; // Estados intermediários do hash
+    uint8_t b[64]; // Buffer para armazenar dados de entrada e padding
+
+    memcpy(b, input, length); // Cópia dos dados de entrada
+    memcpy(b + length, _sha256::pad, 56 - length); // Adiciona o padding
+    WRITEBE64(b + 56, length << 3); // Escreve o comprimento em bits
+
+    _sha256::Transform2(s, b); // Executa a transformação SHA-256
+
+    // Armazena os 8 blocos de 32 bits (256 bits) no checksum
+    for (int i = 0; i < 8; i++) {
+        WRITEBE32(checksum + i * 4, s[i]); // Converte para big-endian
+    }
 }
 
 std::string sha256_hex(unsigned char *digest)

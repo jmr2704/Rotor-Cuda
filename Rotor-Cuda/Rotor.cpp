@@ -6,11 +6,18 @@
 #include "IntGroup.h"
 #include "Timer.h"
 #include "hash/ripemd160.h"
+#include "ColorUtils.h" // Inclui o cabeçalho onde setColor2 é declarado
 #include <cstring>
+#include <iomanip> // Para std::setw e std::setfill
 #include <cmath>
 #include <algorithm>
 #include <iostream>
 #include <cassert>
+#include <cinttypes>
+#include <sstream> 
+#include <ios>
+#include <random>
+#include <fstream>
 #ifndef WIN64
 #include <pthread.h>
 #endif
@@ -24,113 +31,114 @@ Point _2Gn;
 
 Rotor::Rotor(const std::string& inputFile, int compMode, int searchMode, int coinType, bool useGpu,
 	const std::string& outputFile, bool useSSE, uint32_t maxFound, uint64_t rKey,
-	const std::string& rangeStart, const std::string& rangeEnd, bool& should_exit)
+	const std::string& rangeStart, const std::string& rangeEnd, bool& should_exit, int color)
 {
-	this->compMode = compMode;
-	this->useGpu = useGpu;
-	this->outputFile = outputFile;
-	this->useSSE = useSSE;
-	this->nbGPUThread = 0;
-	this->inputFile = inputFile;
-	this->maxFound = maxFound;
-	this->rKey = rKey;
-	this->searchMode = searchMode;
-	this->coinType = coinType;
-	this->rangeStart.SetBase16(rangeStart.c_str());
-	this->rangeEnd.SetBase16(rangeEnd.c_str());
-	this->rangeDiff2.Set(&this->rangeEnd);
-	this->rangeDiff2.Sub(&this->rangeStart);
-	this->lastrKey = 0;
+    this->compMode = compMode;
+    this->useGpu = useGpu;
+    this->outputFile = outputFile;
+    this->useSSE = useSSE;
+    this->nbGPUThread = 0;
+    this->inputFile = inputFile;
+    this->maxFound = maxFound;
+    this->rKey = rKey;
+    this->searchMode = searchMode;
+    this->coinType = coinType;
+    this->color = color; // Inicializa a variável color
 
-	secp = new Secp256K1();
-	secp->Init();
+    this->rangeStart.SetBase16(rangeStart.c_str());
+    this->rangeEnd.SetBase16(rangeEnd.c_str());
+    this->rangeDiff2.Set(&this->rangeEnd);
+    this->rangeDiff2.Sub(&this->rangeStart);
+    this->lastrKey = 0;
 
-	// load file
-	FILE* wfd;
-	uint64_t N = 0;
+    secp = new Secp256K1();
+    secp->Init();
 
-	wfd = fopen(this->inputFile.c_str(), "rb");
-	if (!wfd) {
-		printf("  %s can not open\n", this->inputFile.c_str());
-		exit(1);
-	}
+    // Load file
+    FILE* wfd;
+    uint64_t N = 0;
+
+    wfd = fopen(this->inputFile.c_str(), "rb");
+    if (!wfd) {
+        printf("  %s can not open\n", this->inputFile.c_str());
+        exit(1);
+    }
 
 #ifdef WIN64
-	_fseeki64(wfd, 0, SEEK_END);
-	N = _ftelli64(wfd);
+    _fseeki64(wfd, 0, SEEK_END);
+    N = _ftelli64(wfd);
 #else
-	fseek(wfd, 0, SEEK_END);
-	N = ftell(wfd);
+    fseek(wfd, 0, SEEK_END);
+    N = ftell(wfd);
 #endif
 
-	int K_LENGTH = 20;
-	if (this->searchMode == (int)SEARCH_MODE_MX)
-		K_LENGTH = 32;
+    int K_LENGTH = 20;
+    if (this->searchMode == (int)SEARCH_MODE_MX)
+        K_LENGTH = 32;
 
-	N = N / K_LENGTH;
-	rewind(wfd);
+    N = N / K_LENGTH;
+    rewind(wfd);
 
-	DATA = (uint8_t*)malloc(N * K_LENGTH);
-	memset(DATA, 0, N * K_LENGTH);
+    DATA = (uint8_t*)malloc(N * K_LENGTH);
+    memset(DATA, 0, N * K_LENGTH);
 
-	uint8_t* buf = (uint8_t*)malloc(K_LENGTH);;
+    uint8_t* buf = (uint8_t*)malloc(K_LENGTH);
 
-	bloom = new Bloom(2 * N, 0.000001);
+    bloom = new Bloom(2 * N, 0.000001);
 
-	uint64_t percent = (N - 1) / 100;
-	uint64_t i = 0;
-	printf("\n");
-	while (i < N && !should_exit) {
-		memset(buf, 0, K_LENGTH);
-		memset(DATA + (i * K_LENGTH), 0, K_LENGTH);
-		if (fread(buf, 1, K_LENGTH, wfd) == K_LENGTH) {
-			bloom->add(buf, K_LENGTH);
-			memcpy(DATA + (i * K_LENGTH), buf, K_LENGTH);
-			if ((percent != 0) && i % percent == 0) {
-				printf("\r  Loading      : %llu %%", (i / percent));
-				fflush(stdout);
-			}
-		}
-		i++;
-	}
-	fclose(wfd);
-	free(buf);
+    uint64_t percent = (N - 1) / 100;
+    uint64_t i = 0;
+    printf("\n");
+    while (i < N && !should_exit) {
+        memset(buf, 0, K_LENGTH);
+        memset(DATA + (i * K_LENGTH), 0, K_LENGTH);
+        if (fread(buf, 1, K_LENGTH, wfd) == K_LENGTH) {
+            bloom->add(buf, K_LENGTH);
+            memcpy(DATA + (i * K_LENGTH), buf, K_LENGTH);
+            if ((percent != 0) && i % percent == 0) {
+                printf("\r  Loading      : %" PRIu64 " %%", (i / percent));
+                fflush(stdout);
+            }
+        }
+        i++;
+    }
+    fclose(wfd);
+    free(buf);
 
-	if (should_exit) {
-		delete secp;
-		delete bloom;
-		if (DATA)
-			free(DATA);
-		exit(0);
-	}
+    if (should_exit) {
+        delete secp;
+        delete bloom;
+        if (DATA)
+            free(DATA);
+        exit(0);
+    }
 
-	BLOOM_N = bloom->get_bytes();
-	TOTAL_COUNT = N;
-	targetCounter = i;
-	if (coinType == COIN_BTC) {
-		if (searchMode == (int)SEARCH_MODE_MA)
-			printf("\n  Loaded       : %s Bitcoin addresses\n", formatThousands(i).c_str());
-		else if (searchMode == (int)SEARCH_MODE_MX)
-			printf("\n  Loaded       : %s Bitcoin xpoints\n", formatThousands(i).c_str());
-	}
-	else {
-		printf("\n  Loaded       : %s Ethereum addresses\n", formatThousands(i).c_str());
-	}
+    BLOOM_N = bloom->get_bytes();
+    TOTAL_COUNT = N;
+    targetCounter = i;
 
-	printf("\n");
+    if (coinType == COIN_BTC) {
+        if (searchMode == (int)SEARCH_MODE_MA)
+            printf("\n  Loaded       : %s Bitcoin addresses\n", formatThousands(i).c_str());
+        else if (searchMode == (int)SEARCH_MODE_MX)
+            printf("\n  Loaded       : %s Bitcoin xpoints\n", formatThousands(i).c_str());
+    } else {
+        printf("\n  Loaded       : %s Ethereum addresses\n", formatThousands(i).c_str());
+    }
 
-	bloom->print();
-	printf("\n");
+    printf("\n");
 
-	InitGenratorTable();
+    bloom->print();
+    printf("\n");
 
+    InitGenratorTable();
 }
 
 // ----------------------------------------------------------------------------
 
 Rotor::Rotor(const std::vector<unsigned char>& hashORxpoint, int compMode, int searchMode, int coinType,
 	bool useGpu, const std::string& outputFile, bool useSSE, uint32_t maxFound, uint64_t rKey,
-	const std::string& rangeStart, const std::string& rangeEnd, bool& should_exit)
+	const std::string& rangeStart, const std::string& rangeEnd, bool& should_exit, int color)
 {
 	this->compMode = compMode;
 	this->useGpu = useGpu;
@@ -146,6 +154,7 @@ Rotor::Rotor(const std::vector<unsigned char>& hashORxpoint, int compMode, int s
 	this->rangeDiff2.Set(&this->rangeEnd);
 	this->rangeDiff2.Sub(&this->rangeStart);
 	this->targetCounter = 1;
+	this->color = color; // Inicializa a variável color
 
 	secp = new Secp256K1();
 	secp->Init();
@@ -166,8 +175,6 @@ Rotor::Rotor(const std::vector<unsigned char>& hashORxpoint, int compMode, int s
 
 	InitGenratorTable();
 }
-
-// ----------------------------------------------------------------------------
 
 void Rotor::InitGenratorTable()
 {
@@ -217,11 +224,11 @@ double log1(double x)
 void Rotor::output(std::string addr, std::string pAddr, std::string pAddrHex, std::string pubKey)
 {
 
-#ifdef WIN64
+	#ifdef WIN64
 	WaitForSingleObject(ghMutex, INFINITE);
-#else
+	#else
 	pthread_mutex_lock(&ghMutex);
-#endif
+	#endif
 
 	FILE* f = stdout;
 	bool needToClose = false;
@@ -239,8 +246,13 @@ void Rotor::output(std::string addr, std::string pAddr, std::string pAddrHex, st
 
 	if (!needToClose)
 		printf("\n");
-	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-	SetConsoleTextAttribute(hConsole, FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_INTENSITY);
+    #ifdef WIN64
+      HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+	  SetConsoleTextAttribute(hConsole, FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_INTENSITY);
+    #else
+      setColor2(3);
+    #endif
+	
 	fprintf(f, "PubAddress: %s\n", addr.c_str());
 	fprintf(stdout, "\n  =================================================================================\n");
 	fprintf(stdout, "  PubAddress: %s\n", addr.c_str());
@@ -262,50 +274,68 @@ void Rotor::output(std::string addr, std::string pAddr, std::string pAddrHex, st
 	if (needToClose)
 		fclose(f);
 
-#ifdef WIN64
+	#ifdef WIN64
 	ReleaseMutex(ghMutex);
-#else
+	#else
 	pthread_mutex_unlock(&ghMutex);
-#endif
-
+	#endif
+	setColor2(color);
+	// Finaliza o programa imediatamente
+	exit(0);
 }
 
 // ----------------------------------------------------------------------------
 
 bool Rotor::checkPrivKey(std::string addr, Int& key, int32_t incr, bool mode)
 {
-	Int k(&key), k2(&key);
-	k.Add((uint64_t)incr);
-	k2.Add((uint64_t)incr);
-	// Check addresses
-	Point p = secp->ComputePublicKey(&k);
-	std::string px = p.x.GetBase16();
-	std::string chkAddr = secp->GetAddress(mode, p);
-	if (chkAddr != addr) {
-		//Key may be the opposite one (negative zero or compressed key)
-		k.Neg();
-		k.Add(&secp->order);
-		p = secp->ComputePublicKey(&k);
-		std::string chkAddr = secp->GetAddress(mode, p);
-		if (chkAddr != addr) {
-			printf("\n=================================================================================\n");
-			printf("  Warning, wrong private key generated !\n");
-			printf("  PivK : %s\n", k2.GetBase16().c_str());
-			printf("  Addr : %s\n", addr.c_str());
-			printf("  PubX : %s\n", px.c_str());
-			printf("  PivK : %s\n", k.GetBase16().c_str());
-			printf("  Check: %s\n", chkAddr.c_str());
-			printf("  PubX : %s\n", p.x.GetBase16().c_str());
-			printf("=================================================================================\n");
-			return false;
-		}
-	}
-	output(addr, secp->GetPrivAddress(mode, k), k.GetBase16(), secp->GetPublicKeyHex(mode, p));
-	return true;
+    Int k(&key), k2(&key);
+    k.Add((uint64_t)incr);
+    k2.Add((uint64_t)incr);
+    // Check addresses
+    Point p = secp->ComputePublicKey(&k);
+    std::string px = p.x.GetBase16();
+	std::string pubKeyHex = secp->GetPublicKeyHex(mode, p); // Obter a chave pública em formato hexadecimal
+	unsigned char address[25];
+	address[0] = 0x00;
+
+	secp->GetHash160(mode, p, address + 1);
+    std::string chkAddr = secp->GetAddress(mode, p);
+	setColor2(6);
+	std::string privk = key.GetBase16(); // Obter a chave privada em formato hexadecimal
+    const size_t desiredLength = 64;
+    // Adicionar zeros à esquerda, se necessário
+    if (privk.length() < desiredLength) {
+        privk.insert(0, desiredLength - privk.length(), '0'); // Preencher com zeros
+    }
+
+    if (chkAddr != addr) {
+        // Key may be the opposite one (negative zero or compressed key)
+        k.Neg();
+        k.Add(&secp->order);
+        p = secp->ComputePublicKey(&k);
+        chkAddr = secp->GetAddress(mode, p);
+        
+        if (chkAddr != addr) {
+            
+            setColor2(3);
+            printf("\n=================================================================================\n");
+            printf("  PivK : %s\n", privk.c_str());
+            printf("  Addr : %s\n", addr.c_str());
+            printf("  PubX : %s\n", px.c_str());
+            printf("  PivK : %s\n", k.GetBase16().c_str());
+            printf("=================================================================================\n");
+			setColor2(color);
+            return true;
+        }
+    }
+
+    output(addr, secp->GetPrivAddress(mode, k), privk, secp->GetPublicKeyHex(mode, p));
+    return true;
 }
 
 bool Rotor::checkPrivKeyETH(std::string addr, Int& key, int32_t incr)
 {
+  printf("  PivK2 : %d\n", incr);
 	Int k(&key), k2(&key);
 	k.Add((uint64_t)incr);
 	k2.Add((uint64_t)incr);
@@ -320,16 +350,20 @@ bool Rotor::checkPrivKeyETH(std::string addr, Int& key, int32_t incr)
 		p = secp->ComputePublicKey(&k);
 		std::string chkAddr = secp->GetAddressETH(p);
 		if (chkAddr != addr) {
+			std::string privk = key.GetBase16(); // Obter a chave privada em formato hexadecimal
+			const size_t desiredLength = 64;
+			// Adicionar zeros à esquerda, se necessário
+			if (privk.length() < desiredLength) {
+				privk.insert(0, desiredLength - privk.length(), '0'); // Preencher com zeros
+			}
+			setColor2(2);
 			printf("\n=================================================================================\n");
-			printf("  Warning, wrong private key generated !\n");
-			printf("  PivK :%s\n", k2.GetBase16().c_str());
+			printf("  PivK : %s\n", privk.c_str());
 			printf("  Addr :%s\n", addr.c_str());
 			printf("  PubX :%s\n", px.c_str());
 			printf("  PivK :%s\n", k.GetBase16().c_str());
-			printf("  Check:%s\n", chkAddr.c_str());
-			printf("  PubX :%s\n", p.x.GetBase16().c_str());
 			printf("=================================================================================\n");
-			return false;
+			return true;
 		}
 	}
 	output(addr, k.GetBase16()/*secp->GetPrivAddressETH(k)*/, k.GetBase16(), secp->GetPublicKeyHexETH(p));
@@ -409,11 +443,12 @@ void Rotor::checkMultiAddressesETH(Int key, int i, Point p1)
 void Rotor::checkSingleAddress(bool compressed, Int key, int i, Point p1)
 {
 	unsigned char h0[20];
-
+	
 	// Point
 	secp->GetHash160(compressed, p1, h0);
 	if (MatchHash((uint32_t*)h0)) {
 		std::string addr = secp->GetAddress(compressed, h0);
+		
 		if (checkPrivKey(addr, key, i, compressed)) {
 			nbFoundKey++;
 		}
@@ -512,7 +547,7 @@ void Rotor::checkSingleAddressesSSE(bool compressed, Int key, int i, Point p1, P
 	unsigned char h1[20];
 	unsigned char h2[20];
 	unsigned char h3[20];
-
+	printf("ESTAMOS AQUI !");
 	// Point -------------------------------------------------------------------------
 	secp->GetHash160(compressed, p1, p2, p3, p4, h0, h1, h2, h3);
 	if (MatchHash((uint32_t*)h0)) {
@@ -576,7 +611,7 @@ void Rotor::FindKeyCPU(TH_PARAM * ph)
 	if (rKey > 0) {
 		if (rKeyCount2 == 0) {
 			if (thId == 0) {
-				printf("  Base Key     : Randomly changes %d Private keys every %llu.000.000.000 on the counter\n\n", nbCPUThread, rKey);
+				printf("  Base Key     : Randomly changes %d Private keys every %" PRIu64 ".000.000.000 on the counter\n\n", nbCPUThread, rKey);
 			}
 		}
 	}
@@ -834,21 +869,73 @@ void Rotor::FindKeyCPU(TH_PARAM * ph)
 }
 
 // ----------------------------------------------------------------------------
+// Função para converter uma string hexadecimal em __uint128_t
+__uint128_t hexStringToUint128(const std::string& hexStr) {
+    __uint128_t result = 0;
+    for (char c : hexStr) {
+        result <<= 4; // Desloca 4 bits para a esquerda
+        if (c >= '0' && c <= '9') {
+            result |= (c - '0');
+        } else if (c >= 'a' && c <= 'f') {
+            result |= (c - 'a' + 10);
+        } else if (c >= 'A' && c <= 'F') {
+            result |= (c - 'A' + 10);
+        } else {
+            throw std::invalid_argument("Caractere inválido na string hexadecimal.");
+        }
+    }
+    return result;
+}
+
+// Função para converter __uint128_t em uma string hexadecimal
+std::string uint128ToHexString(__uint128_t value) {
+    std::stringstream ss;
+    ss << std::hex << std::uppercase;
+
+    uint64_t high = static_cast<uint64_t>(value >> 64);
+    uint64_t low = static_cast<uint64_t>(value);
+
+    if (high != 0) {
+        ss << high;
+        ss << std::setw(16) << std::setfill('0') << low;
+    } else {
+        ss << low;
+    }
+
+    return ss.str();
+}
 
 void Rotor::getGPUStartingKeys(Int & tRangeStart, Int & tRangeEnd, int groupSize, int nbThread, Int * keys, Point * p)
 {
 	if (rKey > 0) {
 		if (rKeyCount2 == 0) {
-			printf("  Base Key     : Randomly changes %d start Private keys every %llu.000.000.000 on the counter\n\n", nbThread, rKey);
+			printf("  Base Key     : Randomly changes %d start Private keys every %" PRIu64 ".000.000.000 on the counter\n\n", nbThread, rKey);
 		}
-		
+		if (!startRandomKey.empty()) {
+			try {
+				// Converte startRandomKey para __uint128_t usando a função personalizada
+				__uint128_t startKeyNum = hexStringToUint128(startRandomKey);
+				startKeyNum += (1000000000 * rKey);
+
+				// Converte o valor atualizado para uma string hexadecimal
+				endRandomKey = uint128ToHexString(startKeyNum);
+				saveProgress();
+
+			} catch (const std::invalid_argument& e) {
+				std::cerr << "Erro de argumento inválido: " << e.what() << std::endl;
+			} catch (const std::out_of_range& e) {
+				std::cerr << "Erro: valor hexadecimal fora do range: " << e.what() << std::endl;
+			}
+		}
+
 		for (int i = 0; i < nbThread; i++) {
-			keys[i].Rand(256);
+			keys[i] = generateRandomKeyInRange(tRangeStart, tRangeEnd); // Gera uma chave aleatória dentro do range
+			//keys[i].Rand(67);
+			startRandomKey = keys[i].GetBase16();
 			rhex = keys[i];
 			Int k(keys + i);
-			k.Add((uint64_t)(groupSize / 2));	// Starting key is at the middle of the group
-			p[i] = secp->ComputePublicKey(&k);
-
+			k.Add((uint64_t)(groupSize / 2)); // Starting key is at the middle of the group
+			p[i] = secp->ComputePublicKey(&keys[i]); // Calcula a chave pública inicial
 		}
 	}
 	else {
@@ -874,32 +961,74 @@ void Rotor::getGPUStartingKeys(Int & tRangeStart, Int & tRangeEnd, int groupSize
 
 			keys[i].Set(&tRangeStart2);
 			if (i == 0) {
-				printf("  Thread 00000: %064s ->", keys[i].GetBase16().c_str());
+        std::string base16Key = keys[i].GetBase16();
+        base16Key.insert(base16Key.begin(), 64 - base16Key.size(), '0');
+				printf("  Thread 00000: %s ->", base16Key.c_str());
 			}
 			Int dobb;
 			dobb.Set(&tRangeStart2);
 			dobb.Add(&tRangeDiff);
 			if (i == 0) {
-				printf(" %064s \n", dobb.GetBase16().c_str());
+				std::string base16Dobb = dobb.GetBase16();
+        base16Dobb.insert(base16Dobb.begin(), 64 - base16Dobb.size(), '0'); // Preenche com zeros à esquerda
+        printf(" %s \n", base16Dobb.c_str());
+
 			}
 			if (i == 1) {
-				printf("  Thread 00001: %064s -> %064s \n", tRangeStart2.GetBase16().c_str(), dobb.GetBase16().c_str());
+				std::string tRangeStart2Str = tRangeStart2.GetBase16();
+        tRangeStart2Str.insert(tRangeStart2Str.begin(), 64 - tRangeStart2Str.size(), '0'); // Preenche com zeros à esquerda
+
+        std::string dobbStr = dobb.GetBase16();
+        dobbStr.insert(dobbStr.begin(), 64 - dobbStr.size(), '0'); // Preenche com zeros à esquerda
+
+        printf("  Thread 00001: %s -> %s \n", tRangeStart2Str.c_str(), dobbStr.c_str());
+
 			}
 			if (i == 2) {
-				printf("  Thread 00002: %064s -> %064s \n", tRangeStart2.GetBase16().c_str(), dobb.GetBase16().c_str());
+        std::string tRangeStart2Str = tRangeStart2.GetBase16();
+        tRangeStart2Str.insert(tRangeStart2Str.begin(), 64 - tRangeStart2Str.size(), '0'); // Preenche com zeros à esquerda
+
+        std::string dobbStr = dobb.GetBase16();
+        dobbStr.insert(dobbStr.begin(), 64 - dobbStr.size(), '0'); // Preenche com zeros à esquerda
+
+        printf("  Thread 00002: %s -> %s \n", tRangeStart2Str.c_str(), dobbStr.c_str());
 			}
 			if (i == 3) {
-				printf("  Thread 00003: %064s -> %064s \n", tRangeStart2.GetBase16().c_str(), dobb.GetBase16().c_str());
+        std::string tRangeStart2Str = tRangeStart2.GetBase16();
+        tRangeStart2Str.insert(tRangeStart2Str.begin(), 64 - tRangeStart2Str.size(), '0'); // Preenche com zeros à esquerda
+
+        std::string dobbStr = dobb.GetBase16();
+        dobbStr.insert(dobbStr.begin(), 64 - dobbStr.size(), '0'); // Preenche com zeros à esquerda
+
+        printf("  Thread 00003: %s -> %s \n", tRangeStart2Str.c_str(), dobbStr.c_str());
 				printf("          ... : \n");
 			}
 			if (i == nbThread - 2) {
-				printf("  Thread %d: %064s -> %064s \n", i, tRangeStart2.GetBase16().c_str(), dobb.GetBase16().c_str());
+        std::string tRangeStart2Str = tRangeStart2.GetBase16();
+        tRangeStart2Str.insert(tRangeStart2Str.begin(), 64 - tRangeStart2Str.size(), '0'); // Preenche com zeros à esquerda
+
+        std::string dobbStr = dobb.GetBase16();
+        dobbStr.insert(dobbStr.begin(), 64 - dobbStr.size(), '0'); // Preenche com zeros à esquerda
+
+        printf("  Thread %d: %s -> %s \n", i, tRangeStart2Str.c_str(), dobbStr.c_str());
 			}
 			if (i == nbThread - 1) {
-				printf("  Thread %d: %064s -> %064s \n", i, tRangeStart2.GetBase16().c_str(), dobb.GetBase16().c_str());
+        std::string tRangeStart2Str = tRangeStart2.GetBase16();
+        tRangeStart2Str.insert(tRangeStart2Str.begin(), 64 - tRangeStart2Str.size(), '0'); // Preenche com zeros à esquerda
+
+        std::string dobbStr = dobb.GetBase16();
+        dobbStr.insert(dobbStr.begin(), 64 - dobbStr.size(), '0'); // Preenche com zeros à esquerda
+
+        printf("  Thread %d: %s -> %s \n", i, tRangeStart2Str.c_str(), dobbStr.c_str());
 			}
 			if (i == nbThread) {
-				printf("  Thread %d: %064s -> %064s \n\n", i, tRangeStart2.GetBase16().c_str(), dobb.GetBase16().c_str());
+        std::string tRangeStart2Str = tRangeStart2.GetBase16();
+        tRangeStart2Str.insert(tRangeStart2Str.begin(), 64 - tRangeStart2Str.size(), '0'); // Preenche com zeros à esquerda
+
+        std::string dobbStr = dobb.GetBase16();
+        dobbStr.insert(dobbStr.begin(), 64 - dobbStr.size(), '0'); // Preenche com zeros à esquerda
+
+        printf("  Thread %d: %s -> %s \n\n", i, tRangeStart2Str.c_str(), dobbStr.c_str());
 			}
 
 			tRangeStart2.Add(&tRangeDiff);
@@ -949,7 +1078,9 @@ void Rotor::FindKeyGPU(TH_PARAM * ph)
 	Int* keys = new Int[nbThread];
 	std::vector<ITEM> found;
 
+	setColor2(2); // Verde
 	printf("  GPU          : %s\n\n", g->deviceName.c_str());
+	setColor2(color); // Reseta a cor para a selecionada
 
 	counters[thId] = 0;
 
@@ -1037,6 +1168,11 @@ void Rotor::FindKeyGPU(TH_PARAM * ph)
 		if (ok) {
 			for (int i = 0; i < nbThread; i++) {
 				keys[i].Add((uint64_t)STEP_SIZE);
+
+				/** CHAVE PRIVADA ATUAL **/
+				// std::string currentKey = keys[i].GetBase16();
+				// currentKey.insert(currentKey.begin(), 64 - currentKey.size(), '0'); // Preenche com zeros à esquerda se necessário
+				// printf("Chave privada atual (Thread %d): %s\n", i, currentKey.c_str());
 			}
 			counters[thId] += (uint64_t)(STEP_SIZE)*nbThread; // Point
 		}
@@ -1231,6 +1367,7 @@ void Rotor::Search(int nbThread, std::vector<int> gpuId, std::vector<int> gridSi
 	p100.SetInt32(100);
 	double completedPerc = 0;
 	uint64_t rKeyCount = 0;
+	
 	while (isAlive(params)) {
 
 		int delay = 2000;
@@ -1275,7 +1412,7 @@ void Rotor::Search(int nbThread, std::vector<int> gpuId, std::vector<int> gridSi
 				if (avgGpuKeyRate > 1000000000) {
 
 					memset(timeStr, '\0', 256);
-					printf("\r  [%s] [R: %llu] [%s] [F: %d] [CPU+GPU: %.2f Gk/s] [GPU: %.2f Gk/s] [T: %s]    ",
+					printf("\r  [%s] [R: %" PRIu64 "] [%s] [F: %d] [CPU+GPU: %.2f Gk/s] [GPU: %.2f Gk/s] [T: %s]    ",
 						toTimeStr(t1, timeStr),
 						rKeyCount,
 						rhex.GetBase16().c_str(),
@@ -1286,7 +1423,7 @@ void Rotor::Search(int nbThread, std::vector<int> gpuId, std::vector<int> gridSi
 				}
 				else {
 					memset(timeStr, '\0', 256);
-					printf("\r  [%s] [R: %llu] [%s] [F: %d] [CPU+GPU: %.2f Mk/s] [GPU: %.2f Mk/s] [T: %s]    ",
+					printf("\r  [%s] [R: %" PRIu64 "] [%s] [F: %d] [CPU+GPU: %.2f Mk/s] [GPU: %.2f Mk/s] [T: %s]    ",
 						toTimeStr(t1, timeStr),
 						rKeyCount,
 						rhex.GetBase16().c_str(),
@@ -1302,7 +1439,7 @@ void Rotor::Search(int nbThread, std::vector<int> gpuId, std::vector<int> gridSi
 			if (avgGpuKeyRate > 1000000000) {
 				if (isAlive(params)) {
 					memset(timeStr, '\0', 256);
-					printf("\r  [%s] [CPU+GPU: %.2f Gk/s] [GPU: %.2f Gk/s] [C: %lf %%] [R: %llu] [T: %s (%d bit)] [F: %d]   ",
+					printf("\r  [%s] [CPU+GPU: %.2f Gk/s] [GPU: %.2f Gk/s] [C: %lf %%] [R: %" PRIu64 "] [T: %s (%d bit)] [F: %d]   ",
 						toTimeStr(t1, timeStr),
 						avgKeyRate / 1000000000.0,
 						avgGpuKeyRate / 1000000000.0,
@@ -1316,7 +1453,7 @@ void Rotor::Search(int nbThread, std::vector<int> gpuId, std::vector<int> gridSi
 			else {
 				if (isAlive(params)) {
 					memset(timeStr, '\0', 256);
-					printf("\r  [%s] [CPU+GPU: %.2f Mk/s] [GPU: %.2f Mk/s] [C: %lf %%] [R: %llu] [T: %s (%d bit)] [F: %d]   ",
+					printf("\r  [%s] [CPU+GPU: %.2f Mk/s] [GPU: %.2f Mk/s] [C: %lf %%] [R: %" PRIu64 "] [T: %s (%d bit)] [F: %d]   ",
 						toTimeStr(t1, timeStr),
 						avgKeyRate / 1000000.0,
 						avgGpuKeyRate / 1000000.0,
@@ -1328,17 +1465,25 @@ void Rotor::Search(int nbThread, std::vector<int> gpuId, std::vector<int> gridSi
 				}
 			}
 		}
-		
-		
+
 		if (rKey > 0) {
-			if ((count - lastrKey) > (1000000000 * rKey)) {
-				// rKey request
-				rKeyRequest(params);
-				lastrKey = count;
-				rKeyCount++;
-				rKeyCount2 += rKeyCount;
-			}
-		}
+            if ((count - lastrKey) > (1000000000 * rKey)) {
+                // // Atualize `endRandomKey` como o valor atual no final do range
+                // endRandomKey = startRandomKey;
+                // endRandomKey.Add((1000000000 * rKey));
+
+                // // Salve o progresso do range atual
+                // saveProgress();
+
+                // Solicite novo range com `rKeyRequest`
+                rKeyRequest(params);
+
+                lastrKey = count;
+                rKeyCount++;
+                rKeyCount2 += rKeyCount;
+            }
+        }
+
 
 		lastCount = count;
 		lastGPUCount = gpuCount;
@@ -1443,7 +1588,7 @@ std::string Rotor::formatThousands(uint64_t x)
 {
 	char buf[32] = "";
 
-	sprintf(buf, "%llu", x);
+	sprintf(buf, "%" PRIu64, x);
 
 	std::string s(buf);
 
@@ -1483,23 +1628,35 @@ char* Rotor::toTimeStr(int sec, char* timeStr)
 	return (char*)timeStr;
 }
 
-// ----------------------------------------------------------------------------
+// -----------------------RANDOM RANGE--------------------------
 
-//#include <gmp.h>
-//#include <gmpxx.h>
-// ((input - min) * 100) / (max - min)
-//double Rotor::GetPercantage(uint64_t v)
-//{
-//	//Int val(v);
-//	//mpz_class x(val.GetBase16().c_str(), 16);
-//	//mpz_class r(rangeStart.GetBase16().c_str(), 16);
-//	//x = x - mpz_class(rangeEnd.GetBase16().c_str(), 16);
-//	//x = x * 100;
-//	//mpf_class y(x);
-//	//y = y / mpf_class(r);
-//	return 0;// y.get_d();
-//}
+Int Rotor::generateRandomKeyInRange(const Int& rangeStart, const Int& rangeEnd) {
 
+    Int rangeDiff = rangeEnd;
+    rangeDiff.Sub(const_cast<Int*>(&rangeStart));
 
+    Int randomOffset;
+    randomOffset.Rand(&rangeDiff);
+    Int randomKey = rangeStart;
+    randomKey.Add(&randomOffset);
+    return randomKey;
+}
 
+void Rotor::saveProgress() {
+    std::ofstream progressFile("progress.txt", std::ios::app); // Modo de anexação cria o arquivo se não existir
+    if (!progressFile.is_open()) { // Verifica se o arquivo abriu corretamente
+        std::cerr << "Erro: não foi possível criar ou abrir o arquivo progress.txt. Verifique as permissões." << std::endl;
+        return;  // Sai da função se não conseguiu abrir/criar o arquivo
+    }
 
+    // Verifica se o arquivo está vazio para escrever o cabeçalho
+    progressFile.seekp(0, std::ios::end); // Move o ponteiro para o final do arquivo
+    if (progressFile.tellp() == 0) { // Verifica se o tamanho do arquivo é 0
+        progressFile << "***********RANGES PERCORRIDOS***********" << std::endl;
+    }
+
+    // Escreve o range no formato desejado
+    progressFile << startRandomKey << ":" << endRandomKey << std::endl;
+    
+    progressFile.close(); // Fecha o arquivo
+}

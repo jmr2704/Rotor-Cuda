@@ -89,9 +89,8 @@ bool DecodeBase58(const char *psz, std::vector<uint8_t> &vch)
 
 }
 
-std::string EncodeBase58(const unsigned char *pbegin, const unsigned char *pend)
+std::string EncodeBase58(const unsigned char* pbegin, const unsigned char* pend) 
 {
-
     std::string ret;
     unsigned char digits[256];
 
@@ -117,12 +116,12 @@ std::string EncodeBase58(const unsigned char *pbegin, const unsigned char *pend)
         }
     }
 
-    // reverse
-    for (int i = 0; i < digitslen; i++)
+    // Convert digits into a string
+    for (int i = 0; i < digitslen; i++) {
         ret.push_back(pszBase58[digits[digitslen - 1 - i]]);
+    }
 
     return ret;
-
 }
 
 std::string EncodeBase58(const std::vector<unsigned char> &vch)

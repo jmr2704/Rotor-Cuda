@@ -21,6 +21,10 @@
 #include "hash/keccak160.h"
 #include "Base58.h"
 #include <string.h>
+#include <iomanip> // Para std::setw e std::setfill
+#include <iostream>
+#include <openssl/sha.h>
+#include <openssl/ripemd.h>
 
 Secp256K1::Secp256K1()
 {
@@ -595,8 +599,8 @@ void Secp256K1::GetHash160(bool compressed, Point& pubKey, unsigned char* hash)
 		pubKey.x.Get32Bytes(publicKeyBytes + 1);
 		sha256_33(publicKeyBytes, shapk);
 
-	}
 
+	}
 	ripemd160_32(shapk, hash);
 
 }
@@ -731,19 +735,109 @@ std::string Secp256K1::GetAddressETH(unsigned char* hash)
 	return ret;
 }
 
+// Função auxiliar para converter dados binários para uma string hexadecimal
+std::string Secp256K1::to_hex_string(const unsigned char* data, size_t length) {
+    std::ostringstream oss;
+    for (size_t i = 0; i < length; ++i) {
+        oss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(data[i]);
+    }
+    return oss.str();
+}
+
+std::vector<unsigned char> hex_to_bytes(const std::string& hex) {
+    std::vector<unsigned char> bytes;
+    for (size_t i = 0; i < hex.length(); i += 2) {
+        std::string byteString = hex.substr(i, 2);
+        unsigned char byte = static_cast<unsigned char>(strtol(byteString.c_str(), nullptr, 16));
+        bytes.push_back(byte);
+    }
+    return bytes;
+}
+
 std::string Secp256K1::GetAddress(bool compressed, Point& pubKey)
 {
+    unsigned char address[25];
+    address[0] = 0x00;
 
-	unsigned char address[25];
+    // Exibe a chave pública antes de qualquer transformação
+    std::string pubKeyHex = GetPublicKeyHex(compressed, pubKey);
+	std::cout << "Public Key Hex: " << pubKeyHex << std::endl;
 
-	address[0] = 0x00;
+    // Passo 1: Converta a chave pública hexadecimal para binário
+    std::vector<unsigned char> pubKeyBytes = hex_to_bytes(pubKeyHex);
 
-	GetHash160(compressed, pubKey, address + 1);
-	sha256_checksum(address, 21, address + 21);
+    // Passo 2: SHA-256 da chave pública binária
+    unsigned char sha256Hash[32];
+    SHA256(pubKeyBytes.data(), pubKeyBytes.size(), sha256Hash);
 
-	// Base58
-	return EncodeBase58(address, address + 25);
+    // Passo 3: Hash160 (SHA-256 + RIPEMD-160)
+    GetHash160(compressed, pubKey, address + 1);
 
+    // Passo 4: Checksum (SHA-256 duplo)
+    unsigned char checksum[32];
+    SHA256(address, 21, checksum);        // Primeira vez SHA-256
+    SHA256(checksum, 32, address + 21);   // Segunda vez SHA-256, guardando 4 bytes no final do endereço
+
+    // Passo 5: Codificação Base58
+    std::string encodedAddress = EncodeBase58(address, address + 25);
+
+    return encodedAddress;
+}
+
+std::string Secp256K1::GetAddress2(bool compressed, unsigned char* hash160)
+{
+    unsigned char address[25]; // 1 byte para prefixo + 20 bytes de hash + 4 bytes de checksum
+    address[0] = 0x00; // Prefixo para mainnet
+
+    // Copia o hash RIPEMD-160 para o endereço
+    memcpy(address + 1, hash160, 20);
+
+    // Imprime o valor inicial do prefixo + hash160
+    printf("\n*** Debug GetAddress2 - Etapa 1 ***\n");
+    printf("Prefixo + Hash160 (hex): ");
+    for (int i = 0; i < 21; i++) {
+        printf("%02x", address[i]);
+    }
+    printf("\n");
+
+    // Calcula o checksum
+    unsigned char checksum[32];
+    sha256_checksum(address, 21, checksum);  // Primeiro SHA-256
+
+    // Imprime o resultado do primeiro SHA-256
+    printf("\n*** Debug GetAddress2 - Etapa 2 ***\n");
+    printf("Primeiro SHA-256 (hex): ");
+    for (int i = 0; i < 32; i++) {
+        printf("%02x", checksum[i]);
+    }
+    printf("\n");
+
+    sha256_checksum(checksum, 32, checksum); // Segundo SHA-256
+
+    // Imprime o resultado do segundo SHA-256
+    printf("\n*** Debug GetAddress2 - Etapa 3 ***\n");
+    printf("Segundo SHA-256 (hex): ");
+    for (int i = 0; i < 32; i++) {
+        printf("%02x", checksum[i]);
+    }
+    printf("\n");
+
+    // Adiciona os 4 primeiros bytes do checksum
+    memcpy(address + 21, checksum, 4);
+
+    // Imprime o endereço final com prefixo, hash160 e checksum
+    printf("\n*** Debug GetAddress2 - Etapa 4 ***\n");
+    printf("Address com prefixo e checksum (hex): ");
+    for (int i = 0; i < 25; i++) {
+        printf("%02x", address[i]);
+    }
+    printf("\n");
+
+    // Codifica em Base58
+    std::string encodedAddress = EncodeBase58(address, address + 25);
+    printf("Encoded Address (Base58): %s\n", encodedAddress.c_str());
+
+    return encodedAddress;
 }
 
 std::string Secp256K1::GetAddressETH(Point& pubKey)
