@@ -336,7 +336,6 @@ bool Rotor::checkPrivKey(std::string addr, Int& key, int32_t incr, bool mode)
 bool Rotor::checkPrivKeyETH(std::string addr, Int& key, int32_t incr)
 {
   printf("  PivK2 : %d\n", incr);
-  printf("  PivK2 : %d\n", incr);
 	Int k(&key), k2(&key);
 	k.Add((uint64_t)incr);
 	k2.Add((uint64_t)incr);
@@ -612,7 +611,6 @@ void Rotor::FindKeyCPU(TH_PARAM * ph)
 	if (rKey > 0) {
 		if (rKeyCount2 == 0) {
 			if (thId == 0) {
-				printf("  Base Key     : Randomly changes %d Private keys every %" PRIu64 ".000.000.000 on the counter\n\n", nbCPUThread, rKey);
 				printf("  Base Key     : Randomly changes %d Private keys every %" PRIu64 ".000.000.000 on the counter\n\n", nbCPUThread, rKey);
 			}
 		}
@@ -963,8 +961,8 @@ void Rotor::getGPUStartingKeys(Int & tRangeStart, Int & tRangeEnd, int groupSize
 
 			keys[i].Set(&tRangeStart2);
 			if (i == 0) {
-				std::string base16Key = keys[i].GetBase16();
-				base16Key.insert(base16Key.begin(), 64 - base16Key.size(), '0');
+        std::string base16Key = keys[i].GetBase16();
+        base16Key.insert(base16Key.begin(), 64 - base16Key.size(), '0');
 				printf("  Thread 00000: %s ->", base16Key.c_str());
 			}
 			Int dobb;
@@ -972,64 +970,65 @@ void Rotor::getGPUStartingKeys(Int & tRangeStart, Int & tRangeEnd, int groupSize
 			dobb.Add(&tRangeDiff);
 			if (i == 0) {
 				std::string base16Dobb = dobb.GetBase16();
-				base16Dobb.insert(base16Dobb.begin(), 64 - base16Dobb.size(), '0'); // Preenche com zeros à esquerda
-				printf(" %s \n", base16Dobb.c_str());
+        base16Dobb.insert(base16Dobb.begin(), 64 - base16Dobb.size(), '0'); // Preenche com zeros à esquerda
+        printf(" %s \n", base16Dobb.c_str());
+
 			}
 			if (i == 1) {
 				std::string tRangeStart2Str = tRangeStart2.GetBase16();
-				tRangeStart2Str.insert(tRangeStart2Str.begin(), 64 - tRangeStart2Str.size(), '0'); // Preenche com zeros à esquerda
+        tRangeStart2Str.insert(tRangeStart2Str.begin(), 64 - tRangeStart2Str.size(), '0'); // Preenche com zeros à esquerda
 
-				std::string dobbStr = dobb.GetBase16();
-				dobbStr.insert(dobbStr.begin(), 64 - dobbStr.size(), '0'); // Preenche com zeros à esquerda
+        std::string dobbStr = dobb.GetBase16();
+        dobbStr.insert(dobbStr.begin(), 64 - dobbStr.size(), '0'); // Preenche com zeros à esquerda
 
-				printf("  Thread 00001: %s -> %s \n", tRangeStart2Str.c_str(), dobbStr.c_str());
+        printf("  Thread 00001: %s -> %s \n", tRangeStart2Str.c_str(), dobbStr.c_str());
 
 			}
 			if (i == 2) {
-				std::string tRangeStart2Str = tRangeStart2.GetBase16();
-				tRangeStart2Str.insert(tRangeStart2Str.begin(), 64 - tRangeStart2Str.size(), '0'); // Preenche com zeros à esquerda
+        std::string tRangeStart2Str = tRangeStart2.GetBase16();
+        tRangeStart2Str.insert(tRangeStart2Str.begin(), 64 - tRangeStart2Str.size(), '0'); // Preenche com zeros à esquerda
 
-				std::string dobbStr = dobb.GetBase16();
-				dobbStr.insert(dobbStr.begin(), 64 - dobbStr.size(), '0'); // Preenche com zeros à esquerda
+        std::string dobbStr = dobb.GetBase16();
+        dobbStr.insert(dobbStr.begin(), 64 - dobbStr.size(), '0'); // Preenche com zeros à esquerda
 
-				printf("  Thread 00002: %s -> %s \n", tRangeStart2Str.c_str(), dobbStr.c_str());
+        printf("  Thread 00002: %s -> %s \n", tRangeStart2Str.c_str(), dobbStr.c_str());
 			}
 			if (i == 3) {
-				std::string tRangeStart2Str = tRangeStart2.GetBase16();
-				tRangeStart2Str.insert(tRangeStart2Str.begin(), 64 - tRangeStart2Str.size(), '0'); // Preenche com zeros à esquerda
+        std::string tRangeStart2Str = tRangeStart2.GetBase16();
+        tRangeStart2Str.insert(tRangeStart2Str.begin(), 64 - tRangeStart2Str.size(), '0'); // Preenche com zeros à esquerda
 
-				std::string dobbStr = dobb.GetBase16();
-				dobbStr.insert(dobbStr.begin(), 64 - dobbStr.size(), '0'); // Preenche com zeros à esquerda
+        std::string dobbStr = dobb.GetBase16();
+        dobbStr.insert(dobbStr.begin(), 64 - dobbStr.size(), '0'); // Preenche com zeros à esquerda
 
-				printf("  Thread 00003: %s -> %s \n", tRangeStart2Str.c_str(), dobbStr.c_str());
+        printf("  Thread 00003: %s -> %s \n", tRangeStart2Str.c_str(), dobbStr.c_str());
 				printf("          ... : \n");
 			}
 			if (i == nbThread - 2) {
-				std::string tRangeStart2Str = tRangeStart2.GetBase16();
-				tRangeStart2Str.insert(tRangeStart2Str.begin(), 64 - tRangeStart2Str.size(), '0'); // Preenche com zeros à esquerda
+        std::string tRangeStart2Str = tRangeStart2.GetBase16();
+        tRangeStart2Str.insert(tRangeStart2Str.begin(), 64 - tRangeStart2Str.size(), '0'); // Preenche com zeros à esquerda
 
-				std::string dobbStr = dobb.GetBase16();
-				dobbStr.insert(dobbStr.begin(), 64 - dobbStr.size(), '0'); // Preenche com zeros à esquerda
+        std::string dobbStr = dobb.GetBase16();
+        dobbStr.insert(dobbStr.begin(), 64 - dobbStr.size(), '0'); // Preenche com zeros à esquerda
 
-				printf("  Thread %d: %s -> %s \n", i, tRangeStart2Str.c_str(), dobbStr.c_str());
+        printf("  Thread %d: %s -> %s \n", i, tRangeStart2Str.c_str(), dobbStr.c_str());
 			}
 			if (i == nbThread - 1) {
-				std::string tRangeStart2Str = tRangeStart2.GetBase16();
-				tRangeStart2Str.insert(tRangeStart2Str.begin(), 64 - tRangeStart2Str.size(), '0'); // Preenche com zeros à esquerda
+        std::string tRangeStart2Str = tRangeStart2.GetBase16();
+        tRangeStart2Str.insert(tRangeStart2Str.begin(), 64 - tRangeStart2Str.size(), '0'); // Preenche com zeros à esquerda
 
-				std::string dobbStr = dobb.GetBase16();
-				dobbStr.insert(dobbStr.begin(), 64 - dobbStr.size(), '0'); // Preenche com zeros à esquerda
+        std::string dobbStr = dobb.GetBase16();
+        dobbStr.insert(dobbStr.begin(), 64 - dobbStr.size(), '0'); // Preenche com zeros à esquerda
 
-				printf("  Thread %d: %s -> %s \n", i, tRangeStart2Str.c_str(), dobbStr.c_str());
+        printf("  Thread %d: %s -> %s \n", i, tRangeStart2Str.c_str(), dobbStr.c_str());
 			}
 			if (i == nbThread) {
-				std::string tRangeStart2Str = tRangeStart2.GetBase16();
-				tRangeStart2Str.insert(tRangeStart2Str.begin(), 64 - tRangeStart2Str.size(), '0'); // Preenche com zeros à esquerda
+        std::string tRangeStart2Str = tRangeStart2.GetBase16();
+        tRangeStart2Str.insert(tRangeStart2Str.begin(), 64 - tRangeStart2Str.size(), '0'); // Preenche com zeros à esquerda
 
-				std::string dobbStr = dobb.GetBase16();
-				dobbStr.insert(dobbStr.begin(), 64 - dobbStr.size(), '0'); // Preenche com zeros à esquerda
+        std::string dobbStr = dobb.GetBase16();
+        dobbStr.insert(dobbStr.begin(), 64 - dobbStr.size(), '0'); // Preenche com zeros à esquerda
 
-				printf("  Thread %d: %s -> %s \n\n", i, tRangeStart2Str.c_str(), dobbStr.c_str());
+        printf("  Thread %d: %s -> %s \n\n", i, tRangeStart2Str.c_str(), dobbStr.c_str());
 			}
 
 			tRangeStart2.Add(&tRangeDiff);
