@@ -18,6 +18,9 @@
 #include <ios>
 #include <random>
 #include <fstream>
+#include <locale>
+#include <cstdio>
+
 #ifndef WIN64
 #include <pthread.h>
 #endif
@@ -598,6 +601,16 @@ void Rotor::getCPUStartingKey(Int & tRangeStart, Int & tRangeEnd, Int & key, Poi
 
 // ----------------------------------------------------------------------------
 
+std::string format_number(uint64_t n) {
+    std::string num = std::to_string(n);
+    int insertPosition = num.length() - 3;
+    while (insertPosition > 0) {
+        num.insert(insertPosition, ".");
+        insertPosition -= 3;
+    }
+    return num;
+}
+
 void Rotor::FindKeyCPU(TH_PARAM * ph)
 {
 
@@ -610,8 +623,11 @@ void Rotor::FindKeyCPU(TH_PARAM * ph)
 	
 	if (rKey > 0) {
 		if (rKeyCount2 == 0) {
+			std::locale loc(""); // Usa a localização padrão do sistema para o formato
+			std::cout.imbue(loc); // Configura o cout para usar a localização
 			if (thId == 0) {
-				printf("  Base Key     : Randomly changes %d Private keys every %" PRIu64 ".000.000.000 on the counter\n\n", nbCPUThread, rKey);
+				std::string formattedRKey = format_number(rKey);
+        		printf("  Base Key     : Randomly changes %d start Private keys every %s.000.000.000 on the counter\n\n", nbCPUThread, formattedRKey.c_str());
 			}
 		}
 	}
@@ -908,8 +924,12 @@ std::string uint128ToHexString(__uint128_t value) {
 void Rotor::getGPUStartingKeys(Int & tRangeStart, Int & tRangeEnd, int groupSize, int nbThread, Int * keys, Point * p)
 {
 	if (rKey > 0) {
+		std::locale loc(""); // Usa a localização padrão do sistema para o formato
+		std::cout.imbue(loc); // Configura o cout para usar a localização
+
 		if (rKeyCount2 == 0) {
-			printf("  Base Key     : Randomly changes %d start Private keys every %" PRIu64 ".000.000.000 on the counter\n\n", nbThread, rKey);
+			std::string formattedRKey = format_number(rKey);
+        	printf("  Base Key     : Randomly changes %d start Private keys every %s.000.000.000 on the counter\n\n", nbThread, formattedRKey.c_str());
 		}
 		if (!startRandomKey.empty()) {
 			try {
